@@ -2,6 +2,10 @@
 
 #Library
 library(dplyr)
+library(kernlab)
+library(rpart)
+library(randomForest)
+library(e1071)
 
 #Load Data
 park    <- read.csv("~/Amazon Drive/ML 2017/park_pluto_score.csv")
@@ -12,7 +16,7 @@ names(park)
 
 #Select Columns
 clean_parkdata <- park %>%
-                  select(AssessTot, acres, LotArea, BldgArea, ResArea, NumFloors, UnitsRes, UnitsTotal, YearBuilt,
+                  select(signname, AssessTot, acres, LotArea, BldgArea, ResArea, NumFloors, UnitsRes, UnitsTotal, YearBuilt,
                          Inspections_Inspection_OverallCondition, Inspections_Inspection_Cleanliness, Inspections_Inspection_Cleanliness_Glass,
                          Inspections_Inspection_Cleanliness_Graffiti, Inspections_Inspection_Cleanliness_Litter, Inspections_Inspection_Cleanliness_Weeds, 
                          Inspections_Inspection_Landscape_Trees, Inspections_Inspection_Landscape, Inspections_Inspection_OverallCleanliness,
@@ -41,32 +45,66 @@ kmeans.result$cluster
 
 ##Classificaiton
 
-
+#___________________________________
 #Run OLS 
-fit <- lm(AssessTot ~ ., data = clean_parkdata)
-summary(fit)
 
-fit <- lm(AssessTot ~ acres + LotArea +  BldgArea +  ResArea + NumFloors +
-            UnitsTotal + YearBuilt + Inspections_Inspection_OverallCondition, data = clean_parkdata)
-summary(fit)
+fit_ols <- lm(AssessTot ~ acres + LotArea +  BldgArea +  ResArea + NumFloors +
+            UnitsTotal + YearBuilt + Average, data = clean_parkdata)
 
-fit <- lm(AssessTot ~ acres + LotArea +  BldgArea +  ResArea + NumFloors +
-            UnitsTotal + YearBuilt + Inspections_Inspection_OverallCleanliness + 
-            Inspections_Inspection_Structural + Inspections_Inspection_Landscape, data = clean_parkdata)
-summary(fit)
+summary(fit_ols)
+
+#Root Means Squared Error (RMSE) Function
+rmse <- function(error) {
+  sqrt(mean(error^2))
+}
+
+#Predict Error
+error_ols <- fit_ols$residuals
+predictioRMSE_OLS <- rmse(erro)
+#____________________________________
+#SVM
+
+fit <- ksvm(AssessTot ~ acres + LotArea +  BldgArea +  ResArea + NumFloors +
+              UnitsTotal + YearBuilt + Average, clean_parkdata)
 
 
-#Devide Data between 
-# define training control
-train_control <-caret::trainControl(method="cv", number=10)
-# fix the parameters of the algorithm
-grid <- expand.grid(.fL=c(0), .usekernel=c(FALSE))
-# train the model
-model <- caret::train(AssessTot ~ acres + LotArea +  BldgArea +  ResArea + NumFloors +
-                 UnitsTotal + YearBuilt + Inspections_Inspection_OverallCondition, 
-               data=clean_parkdata, trControl=train_control, method="ls", tuneGrid=grid)
-# summarize results
-print(model)
+# make a prediction for each X
+predictedY <- predict(fit, clean_parkdata)
+
+# display the predictions
+points(clean_parkdata$AssessTot, predictedY, col = "blue", pch=4)
+
+#Calcuate error
+error_svm <- clean_parkdata$AssessTot - predictedY
+svrPredictionRMS <- rmse(error_svm)
+
+
+#Keep it Simple a Do Classifier Problemm since predicitng price is not working great for the homework
+svmfit <- svm(signname ~., data = clean_parkdata, kernel = "linear", cost = 0.1, scale = FALSE)
+#print(svmfit)
+
+#___________________________________
+#Tree Regression
+rt.model <- rpart(AssessTot ~ acres + LotArea +  BldgArea +  ResArea + NumFloors +
+                    UnitsTotal + YearBuilt + Average, clean_parkdata)
+
+printcp(rt.model) # display the results
+plotcp(rt.model) # visualize cross-validation results
+summary(rt.model) # detailed summary of splits
+
+
+# plot tree 
+#Tree will show only the relevant attributes
+plot(rt.model, uniform=TRUE, main="Classification Tree for Park Quality Score Predict Residential Prices")
+text(rt.model, use.n=TRUE, all=TRUE, cex=.8)
+
+#_________________________________________
+#Random Forest
+
+forest <- randomForest::randomForest(AssessTot ~ acres + LotArea +  BldgArea +  ResArea + NumFloors +
+                  UnitsTotal + YearBuilt + Average, clean_parkdata)
+
+
 
 #______________________________________________________________________________
 #Devide Data between Train and Test
@@ -112,4 +150,27 @@ coef(cv.ridge, s=cv.ridge$lambda.min)
 ##PCA
 
 
+#_________________________________________________________________________
+#SVM https://www.youtube.com/watch?v=ueKqDlMxueE
+
+plot(iris$Petal.Length, iris$Petal.Width, col=iris$Species)
+plot(clean_parkdata$Average,)
+
+#col <- c("Petal.Length","Petal.Width", "Species")
+#train <- train[,col]
+#test  <- test[,col]
+
+svmfit <- svm(Species ~., data = train, kernel = "linear", cost = 0.1, scale = FALSE)
+print(svmfit)
+plot(svmfit, train[,col])
+
+#CV to find the best tune
+tuned <- tune(svm, Species ~., data = train, kernel = "linear", 
+              ranges = list(cost =c(0.001, 0.01, .1, 1.10, 100)))
+summary(tuned)
+
+#Predict 
+default_predsv <- predict(svmfit, test[,col], type="class")
+table(default_predsv, test[,3]) #Table to look in the predictor
+mean(default_predsv == test[,3])
 
