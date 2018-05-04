@@ -1,4 +1,6 @@
-Urban Science Intensive I			Spring 2017				   Prof. Riccio
+![alt text](https://github.com/UrbanPlanner42/PRINCIPLES-OF-URBAN-INFORMATICS/blob/master/NYU_Logo.png)
+
+Urban Science Intensive 
 
 <b>The Effect of Parks on Real Estate in New York City
 Group Members: Matthew Sloane, Alexis Soto-Colorado, Sichen Tang, William Xia </b>
